@@ -1,0 +1,6 @@
+{
+  "name": "BPK OPL",
+  "description": "Aplikasi Pencatatan Perintah Kerja Bengkel (OPL) DSO Depok",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
