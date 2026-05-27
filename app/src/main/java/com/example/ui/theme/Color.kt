@@ -2,25 +2,24 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Modern Premium Workshop Theme (Sleek Interface: Royal Blue & airy light blue-slate)
-val PrimaryBlue = Color(0xFF005AC1)       // Sleek Royal Blue
-val SecondaryOrange = Color(0xFFF78812)   // Premium Workshop Orange
-val AccentTeal = Color(0xFF00909E)        // Accent Teal
-val DarkSlate = Color(0xFF0F172A)         // Dark slate background
-val IceLight = Color(0xFFF7F9FF)          // Sleek airy background for light theme
+// Modern Premium Workshop Theme (Cyber/Cyan Space Interface)
+// Diperbarui: Warna lebih muted/kalem agar tidak menyilaukan dan menyatu dengan background.
 
-// Light theme colors
-val LightPrimary = Color(0xFF005AC1)
-val LightSecondary = Color(0xFFF78812)
+val DarkSlate = Color(0xFF0F172A)         // Latar belakang utama (Sangat Gelap)
+val IceLight = Color(0xFFF7F9FF)
+
+// Light theme colors (Disesuaikan sedikit agar selaras)
+val LightPrimary = Color(0xFF0891B2)      // Cyan tua yang kalem
+val LightSecondary = Color(0xFF0D9488)    // Teal elegan
 val LightTertiary = Color(0xFF0284C7)
-val LightBackground = Color(0xFFF7F9FF)
+val LightBackground = Color(0xFFF8FAFC)
 val LightSurface = Color(0xFFFFFFFF)
 val LightOnSurface = Color(0xFF0F172A)
 
-// Dark theme colors
-val DarkPrimary = Color(0xFF90CAF9)
-val DarkSecondary = Color(0xFFFFAE5D)
-val DarkTertiary = Color(0xFF38BDF8)
-val DarkBackground = Color(0xFF0F172A)     // Cool dark slate background
-val DarkSurface = Color(0xFF1E293B)        // Slate gray card tiles
-val DarkOnSurface = Color(0xFFF8FAFC)
+// Dark theme colors (Diperbaiki untuk readability dan nuansa elegan)
+val DarkPrimary = Color(0xFF0F766E)       // Teal muted/redup (Muted Earthy Teal)
+val DarkSecondary = Color(0xFF0D9488)     // Teal sekunder
+val DarkTertiary = Color(0xFF0369A1)      // Blue mute
+val DarkBackground = Color(0xFF0F172A)    // Latar belakang Slate gelap
+val DarkSurface = Color(0xFF1E293B)       // Surface sedikit terang dari background
+val DarkOnSurface = Color(0xFFF1F5F9)     // Teks solid/terang untuk kontras

@@ -22,6 +22,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.animation.core.*
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -44,6 +48,13 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -77,6 +88,18 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun OplAppScreen(viewModel: OplViewModel) {
+    var showSplash by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(3500)
+        showSplash = false
+    }
+
+    if (showSplash) {
+        SplashScreen()
+        return
+    }
+
     val activeTab by viewModel.activeTab.collectAsStateWithLifecycle()
     val statusMessage by viewModel.statusMessage.collectAsStateWithLifecycle()
     
@@ -98,8 +121,7 @@ fun OplAppScreen(viewModel: OplViewModel) {
             topBar = {
                 OplTopBar(
                     title = "BPK Bengkel",
-                    subtitle = "Depok Service Office (DSO)",
-                    onGenerateDemo = { viewModel.generateDemoData() }
+                    subtitle = "Depok Service Office (DSO)"
                 )
             },
             bottomBar = {
@@ -182,120 +204,176 @@ private fun Context.findActivity(): Activity? {
 @Composable
 fun OplTopBar(
     title: String,
-    subtitle: String,
-    onGenerateDemo: () -> Unit
+    subtitle: String
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.primary,
-        shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
-        shadowElevation = 8.dp
+        color = MaterialTheme.colorScheme.background,
+        shadowElevation = 4.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 24.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.Center
         ) {
-            // Elegant OPL Branding
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                // Sleek Gradient Circular Icon Badge
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = 0.3f),
-                                    Color.White.copy(alpha = 0.08f)
-                                )
-                            ),
-                            shape = RoundedCornerShape(14.dp)
-                        )
-                        .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(14.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Build,
-                        tint = Color.White,
-                        contentDescription = "OPL Logo",
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
+            AnimatedEnigmaHeader()
+        }
+    }
+}
 
-                Column {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "OPL WORKSHOP",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f),
-                            letterSpacing = 1.5.sp
-                        )
-                        // Live indicator dot
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .background(Color(0xFF22C55E), CircleShape)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Digital Control",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp,
-                            letterSpacing = (-0.5).sp
-                        ),
-                        color = Color.White
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Sistem Pemantauan OPL Real-time • $subtitle",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+@Composable
+fun AnimatedEnigmaHeader() {
+    val infiniteTransition = rememberInfiniteTransition(label = "enigma_header")
+
+    val text = "ENIGMA" // Matching the requested text
+    val textColor = MaterialTheme.colorScheme.onBackground
+    
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+        modifier = Modifier.padding(4.dp)
+    ) {
+        text.forEachIndexed { index, char ->
+            if (char == ' ') {
+                Spacer(modifier = Modifier.width(8.dp))
+                return@forEachIndexed
             }
-
-            // Quick simulation action button as a sleek pill
-            Button(
-                onClick = onGenerateDemo,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White.copy(alpha = 0.15f),
-                    contentColor = Color.White
+            // staggered delay calculation
+            val delay = index * 105 // 0.105s steps based on css
+            
+            val floatAnim by infiniteTransition.animateFloat(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = keyframes {
+                        durationMillis = 4000 // 4s linear loop
+                        0f at 0
+                        1f at 200 // 5% mark
+                        0.2f at 800 // 20% mark
+                        0f at 4000 // 100% mark
+                    },
+                    repeatMode = RepeatMode.Restart,
+                    initialStartOffset = StartOffset(delay)
                 ),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
-                modifier = Modifier.height(38.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Dataset,
-                        contentDescription = "Simulasi",
-                        modifier = Modifier.size(16.dp)
+                label = "letter_anim_$index"
+            )
+
+            Text(
+                text = char.toString(),
+                fontSize = 24.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.SansSerif,
+                style = androidx.compose.ui.text.TextStyle(
+                    shadow = androidx.compose.ui.graphics.Shadow(
+                        color = textColor.copy(alpha = floatAnim.coerceIn(0f, 1f)),
+                        blurRadius = (floatAnim * 12f).coerceAtLeast(0.01f)
                     )
-                    Text(
-                        text = "Simulasi",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                ),
+                color = textColor.copy(alpha = floatAnim.coerceIn(0.4f, 1f)), // Minimum opacity 0.4 so it's not totally invisible
+                modifier = Modifier.graphicsLayer {
+                    val scale = 1f + (floatAnim * 0.1f)
+                    scaleX = scale
+                    scaleY = scale
+                    translationY = -floatAnim * 4f
                 }
+            )
+        }
+    }
+}
+
+@Composable
+fun Animated3DBottomNavBarItem(
+    selected: Boolean,
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    activeColor: Color
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    
+    // Animate when pressed or selected
+    val isActive = isPressed || selected
+
+    val animationProgress by animateFloatAsState(
+        targetValue = if (isActive) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = 0.6f, // spring-like cubic-bezier feel
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "click_anim"
+    )
+
+    // Child (Container) transforms
+    val containerRotationX = animationProgress * 60f
+    val containerTranslationY = animationProgress * 8f 
+    
+    // Button (Icon) transforms 
+    // translate3d(0, 20, 30) rotateX(-60deg) 
+    val iconRotationX = animationProgress * -60f
+    val iconTranslationY = animationProgress * -15f // pop out upwards
+
+    Box(
+        modifier = modifier
+            .height(64.dp)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null, // Disable default ripple for custom 3D effect
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        // Container
+        Box(
+            modifier = Modifier
+                .width(64.dp)
+                .height(48.dp)
+                .graphicsLayer {
+                    rotationX = containerRotationX
+                    cameraDistance = 12f
+                    translationY = containerTranslationY.dp.toPx()
+                }
+                .background(
+                    color = if (isActive) activeColor.copy(alpha = 0.15f) else Color.Transparent,
+                    shape = RoundedCornerShape(12.dp)
+                )
+                .border(
+                    width = if (isActive) 1.dp else 0.dp,
+                    color = if (isActive) activeColor.copy(alpha = 0.3f) else Color.Transparent,
+                    shape = RoundedCornerShape(12.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            // Icon (Button) popping out
+            Box(
+                modifier = Modifier.graphicsLayer {
+                    rotationX = iconRotationX
+                    cameraDistance = 12f
+                    translationY = iconTranslationY.dp.toPx()
+                }
+            ) {
+                icon()
             }
         }
+        
+        // Hide Text when active, show when inactive
+        Text(
+            text = label,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (selected) activeColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 2.dp)
+                .graphicsLayer {
+                    alpha = 1f - animationProgress
+                    translationY = (animationProgress * 10f).dp.toPx()
+                }
+        )
     }
 }
 
@@ -304,75 +382,80 @@ fun OplBottomNavBar(
     activeTab: Int,
     onTabSelected: (Int) -> Unit
 ) {
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 8.dp,
-        modifier = Modifier.navigationBarsPadding()
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 16.dp,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        NavigationBarItem(
-            selected = activeTab == 0,
-            onClick = { onTabSelected(0) },
-            label = { Text("Daily OPL", fontWeight = FontWeight.Bold) },
-            icon = {
-                Icon(
-                    imageVector = if (activeTab == 0) Icons.Default.Today else Icons.Outlined.Today,
-                    contentDescription = "Daily OPL"
-                )
-            },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = MaterialTheme.colorScheme.primary,
-                selectedTextColor = MaterialTheme.colorScheme.primary,
-                indicatorColor = MaterialTheme.colorScheme.primaryContainer
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Animated3DBottomNavBarItem(
+                selected = activeTab == 0,
+                onClick = { onTabSelected(0) },
+                label = "Daily OPL",
+                icon = {
+                    Icon(
+                        imageVector = if (activeTab == 0) Icons.Default.Today else Icons.Outlined.Today,
+                        contentDescription = "Daily OPL",
+                        tint = if (activeTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                },
+                activeColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f)
             )
-        )
-        NavigationBarItem(
-            selected = activeTab == 1,
-            onClick = { onTabSelected(1) },
-            label = { Text("Pencatatan", fontWeight = FontWeight.Bold) },
-            icon = {
-                Icon(
-                    imageVector = if (activeTab == 1) Icons.Default.AddBox else Icons.Outlined.AddBox,
-                    contentDescription = "Pencatatan OPL"
-                )
-            },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = MaterialTheme.colorScheme.primary,
-                selectedTextColor = MaterialTheme.colorScheme.primary,
-                indicatorColor = MaterialTheme.colorScheme.primaryContainer
+            Animated3DBottomNavBarItem(
+                selected = activeTab == 1,
+                onClick = { onTabSelected(1) },
+                label = "OPL Create",
+                icon = {
+                    Icon(
+                        imageVector = if (activeTab == 1) Icons.Default.AddBox else Icons.Outlined.AddBox,
+                        contentDescription = "OPL Create",
+                        tint = if (activeTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                },
+                activeColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f)
             )
-        )
-        NavigationBarItem(
-            selected = activeTab == 2,
-            onClick = { onTabSelected(2) },
-            label = { Text("OPL Editor", fontWeight = FontWeight.Bold) },
-            icon = {
-                Icon(
-                    imageVector = if (activeTab == 2) Icons.Default.Edit else Icons.Outlined.Edit,
-                    contentDescription = "OPL Editor"
-                )
-            },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = MaterialTheme.colorScheme.primary,
-                selectedTextColor = MaterialTheme.colorScheme.primary,
-                indicatorColor = MaterialTheme.colorScheme.primaryContainer
+            Animated3DBottomNavBarItem(
+                selected = activeTab == 2,
+                onClick = { onTabSelected(2) },
+                label = "OPL Editor",
+                icon = {
+                    Icon(
+                        imageVector = if (activeTab == 2) Icons.Default.Edit else Icons.Outlined.Edit,
+                        contentDescription = "Editor",
+                        tint = if (activeTab == 2) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                },
+                activeColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f)
             )
-        )
-        NavigationBarItem(
-            selected = activeTab == 3,
-            onClick = { onTabSelected(3) },
-            label = { Text("Data OPL", fontWeight = FontWeight.Bold) },
-            icon = {
-                Icon(
-                    imageVector = if (activeTab == 3) Icons.Default.History else Icons.Outlined.History,
-                    contentDescription = "Data OPL"
-                )
-            },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = MaterialTheme.colorScheme.primary,
-                selectedTextColor = MaterialTheme.colorScheme.primary,
-                indicatorColor = MaterialTheme.colorScheme.primaryContainer
+            Animated3DBottomNavBarItem(
+                selected = activeTab == 3,
+                onClick = { onTabSelected(3) },
+                label = "Data OPL",
+                icon = {
+                    Icon(
+                        imageVector = if (activeTab == 3) Icons.Default.History else Icons.Outlined.History,
+                        contentDescription = "Data OPL",
+                        tint = if (activeTab == 3) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                },
+                activeColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f)
             )
-        )
+        }
     }
 }
 
@@ -477,7 +560,16 @@ fun PencatatanOplScreen(viewModel: OplViewModel) {
     val notes by viewModel.formNotes.collectAsStateWithLifecycle()
     val isEditingMode by viewModel.isEditing.collectAsStateWithLifecycle()
 
-    val formattedToday = getFormattedDateIndo(viewModel.getCurrentDateString())
+    val vehicleType by viewModel.formVehicleType.collectAsStateWithLifecycle()
+    val vehicleOther by viewModel.formVehicleOther.collectAsStateWithLifecycle()
+    var expandedVehicle by remember { mutableStateOf(false) }
+    var expandedJob by remember { mutableStateOf(false) }
+
+    val formDate by viewModel.formDate.collectAsStateWithLifecycle()
+    val isToday = formDate == viewModel.getCurrentDateString()
+    val formattedDate = getFormattedDateIndo(formDate)
+
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -515,7 +607,30 @@ fun PencatatanOplScreen(viewModel: OplViewModel) {
 
         // Automatic Date Indicator Card
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().clickable {
+                val calendar = Calendar.getInstance()
+                viewModel.parseDateString(formDate)?.let { d ->
+                    calendar.time = d
+                }
+                try {
+                    android.app.DatePickerDialog(
+                        context.findActivity() ?: context,
+                        { _, year, month, dayOfMonth ->
+                            val newCal = Calendar.getInstance().apply {
+                                set(Calendar.YEAR, year)
+                                set(Calendar.MONTH, month)
+                                set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                            }
+                            viewModel.formDate.value = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(newCal.time)
+                        },
+                        calendar.get(Calendar.YEAR),
+                        calendar.get(Calendar.MONTH),
+                        calendar.get(Calendar.DAY_OF_MONTH)
+                    ).show()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            },
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)
             ),
@@ -532,12 +647,19 @@ fun PencatatanOplScreen(viewModel: OplViewModel) {
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Tanggal Pencatatan: $formattedToday (Hari Ini)",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Column {
+                    Text(
+                        text = "Tanggal Pencatatan: $formattedDate " + if(isToday) "(Hari Ini)" else "",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Ketuk untuk mengubah tanggal",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
             }
         }
 
@@ -601,41 +723,100 @@ fun PencatatanOplScreen(viewModel: OplViewModel) {
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Work Types Chips Selection (Multi-select)
-            Text(
-                text = "Pilih Type Pekerjaan (Bisa pilih lebih dari satu)",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            // Elegant wrap-flow for selection
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            // Vehicle Type Dropdown
+            @OptIn(ExperimentalMaterial3Api::class)
+            ExposedDropdownMenuBox(
+                expanded = expandedVehicle,
+                onExpandedChange = { expandedVehicle = it }
             ) {
-                viewModel.availableJobs.forEach { job ->
-                    val isSelected = selectedJobs.contains(job)
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { viewModel.onJobSelected(job, !isSelected) },
-                        label = { Text(job, fontWeight = FontWeight.SemiBold) },
-                        leadingIcon = if (isSelected) {
-                            {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        } else null,
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.primary,
-                            selectedLeadingIconColor = MaterialTheme.colorScheme.primary
+                OutlinedTextField(
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    value = vehicleType,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Type Kendaraan") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVehicle) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                )
+                ExposedDropdownMenu(
+                    expanded = expandedVehicle,
+                    onDismissRequest = { expandedVehicle = false }
+                ) {
+                    viewModel.availableVehicles.forEach { selectionOption ->
+                        DropdownMenuItem(
+                            text = { Text(selectionOption) },
+                            onClick = {
+                                viewModel.formVehicleType.value = selectionOption
+                                expandedVehicle = false
+                            },
+                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
                         )
-                    )
+                    }
+                }
+            }
+
+            if (vehicleType == "Others") {
+                OutlinedTextField(
+                    value = vehicleOther,
+                    onValueChange = { viewModel.formVehicleOther.value = it },
+                    label = { Text("Tipe Kendaraan Lainnya") },
+                    placeholder = { Text("Masukkan manual...") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Work Types Dropdown Selection
+            val selectedJobsDisplay = selectedJobs.joinToString(", ")
+            @OptIn(ExperimentalMaterial3Api::class)
+            ExposedDropdownMenuBox(
+                expanded = expandedJob,
+                onExpandedChange = { expandedJob = it }
+            ) {
+                OutlinedTextField(
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    value = selectedJobsDisplay,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Tipe Pekerjaan (Bisa pilih ganda)") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedJob) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                )
+                ExposedDropdownMenu(
+                    expanded = expandedJob,
+                    onDismissRequest = { expandedJob = false }
+                ) {
+                    viewModel.availableJobs.forEach { selectionOption ->
+                        val isSelected = selectedJobs.contains(selectionOption)
+                        DropdownMenuItem(
+                            text = { 
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(checked = isSelected, onCheckedChange = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(selectionOption)
+                                }
+                            },
+                            onClick = {
+                                viewModel.onJobSelected(selectionOption, !isSelected)
+                            },
+                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                        )
+                    }
                 }
             }
 
@@ -691,6 +872,12 @@ fun PencatatanOplScreen(viewModel: OplViewModel) {
 // ==========================================
 @Composable
 fun OplEditorScreen(viewModel: OplViewModel) {
+    val isEditing by viewModel.isEditing.collectAsStateWithLifecycle()
+    if (isEditing) {
+        PencatatanOplScreen(viewModel)
+        return
+    }
+
     val allEntries by viewModel.allEntries.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf("") }
     var entryToDelete by remember { mutableStateOf<OplEntry?>(null) }
@@ -733,25 +920,11 @@ fun OplEditorScreen(viewModel: OplViewModel) {
         }
 
         // Search Bar with outline styling
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = { Text("Cari Plat Nomor, SA, atau Pekerjaan") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
-            trailingIcon = if (searchQuery.isNotEmpty()) {
-                {
-                    IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear search", modifier = Modifier.size(18.dp))
-                    }
-                }
-            } else null,
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = Color(0xFFE2E8F0)
-            )
+        CyberSearchBar(
+            query = searchQuery,
+            onQueryChange = { searchQuery = it },
+            placeholder = "Cari Plat Nomor, SA, atau Pekerjaan",
+            modifier = Modifier.fillMaxWidth()
         )
 
         if (filteredEntries.isEmpty()) {
@@ -835,6 +1008,16 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
     
     val jobStats by viewModel.jobStatistics.collectAsStateWithLifecycle()
     val trendStats by viewModel.trendStatistics.collectAsStateWithLifecycle()
+    val chartMonth by viewModel.chartSelectedMonth.collectAsStateWithLifecycle()
+    val allEntries by viewModel.allEntries.collectAsStateWithLifecycle()
+    val targetJobPrices by viewModel.targetJobPrices.collectAsStateWithLifecycle()
+    
+    var expandedEntryId by remember { mutableStateOf<Int?>(null) }
+    var showBulkDeleteConfirm by remember { mutableStateOf(false) }
+    var showDummyDeleteConfirm by remember { mutableStateOf(false) }
+    var showExportFilterDialog by remember { mutableStateOf(false) }
+    var selectedExportJobs by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var selectedJobForPrice by remember { mutableStateOf("Salon Mesin") }
     
     val context = LocalContext.current
     var currentSubMode by remember { mutableStateOf("list") } // "list" or "charts"
@@ -856,8 +1039,9 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             listOf(
-                "list" to Pair("Daftar OPL", Icons.Default.List),
-                "charts" to Pair("Visualisasi & Grafik", Icons.Default.BarChart)
+                "list" to Pair("Daftar", Icons.Default.List),
+                "charts" to Pair("Grafik", Icons.Default.BarChart),
+                "delete" to Pair("Hapus Data", Icons.Default.DeleteSweep)
             ).forEach { (mode, pair) ->
                 val (label, icon) = pair
                 val isSelected = currentSubMode == mode
@@ -880,9 +1064,11 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = label,
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isSelected) Color.White else Color.Gray
+                        color = if (isSelected) Color.White else Color.Gray,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -892,17 +1078,90 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
             // ==========================================
             // CHARTS & VISUAL ANALYTICS MODE
             // ==========================================
+            val availableMonths = remember(allEntries) {
+                allEntries.map { it.tanggalString.take(7) }.distinct().sortedDescending()
+            }
+            var expandedMonth by remember { mutableStateOf(false) }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Month Picker & Export PDF
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    @OptIn(ExperimentalMaterial3Api::class)
+                    ExposedDropdownMenuBox(
+                        expanded = expandedMonth,
+                        onExpandedChange = { expandedMonth = it },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        OutlinedTextField(
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            value = chartMonth,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Pilih Bulan (Berdasarkan Data)") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedMonth) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expandedMonth,
+                            onDismissRequest = { expandedMonth = false }
+                        ) {
+                            if (availableMonths.isEmpty()) {
+                                DropdownMenuItem(text = { Text("Belum ada data") }, onClick = { expandedMonth = false })
+                            }
+                            availableMonths.forEach { monthOption ->
+                                DropdownMenuItem(
+                                    text = { Text(monthOption) },
+                                    onClick = {
+                                        viewModel.chartSelectedMonth.value = monthOption
+                                        expandedMonth = false
+                                    },
+                                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Button Export Grafik PDF
+                    IconButton(
+                        onClick = { 
+                            com.example.util.PdfExporter.exportGrafikPdf(
+                                context = context,
+                                month = chartMonth,
+                                jobStats = jobStats,
+                                trendStats = trendStats
+                            )
+                        },
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(10.dp))
+                            .size(56.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PictureAsPdf,
+                            contentDescription = "Export PDF",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
                 // Summary Stats row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    val totalUnit = trendStats.sumOf { it.second }
                     Card(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(20.dp),
@@ -922,7 +1181,7 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "${entries.size} Unit",
+                                text = "$totalUnit Unit",
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary
@@ -964,6 +1223,281 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
                                 fontSize = 10.sp,
                                 color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f)
                             )
+                        }
+                    }
+                }
+
+                // Target & Insentif Module
+                val totalJobsCount = jobStats.values.sum()
+                var totalRevenue = 0L
+                jobStats.forEach { (job, count) ->
+                    val price = (targetJobPrices[job] ?: "120000").toLongOrNull() ?: 120000L
+                    totalRevenue += (count * price)
+                }
+                
+                var incentivePercent = 0
+                if (totalRevenue > 75_000_000) incentivePercent = 6
+                else if (totalRevenue > 55_000_000) incentivePercent = 5
+                else if (totalRevenue > 45_000_000) incentivePercent = 4
+                else if (totalRevenue > 35_000_000) incentivePercent = 3
+                else if (totalRevenue > 25_000_000) incentivePercent = 2
+                else if (totalRevenue > 15_000_000) incentivePercent = 1
+                
+                val totalIncentive = (totalRevenue * incentivePercent) / 100
+
+                val formatRp = remember { java.text.NumberFormat.getCurrencyInstance(Locale("id", "ID")).apply { maximumFractionDigits = 0 } }
+                
+                Card(
+                     modifier = Modifier.fillMaxWidth(),
+                     shape = RoundedCornerShape(24.dp),
+                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                     border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .background(Color(0xFFF3E8FF), CircleShape), // Purple tint
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AttachMoney,
+                                        contentDescription = null,
+                                        tint = Color(0xFF9333EA),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                Column {
+                                    Text(
+                                        text = "Pendapatan & Insentif",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Target berdasarkan nilai total pekerjaan",
+                                        fontSize = 11.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+                            
+                            IconButton(
+                                onClick = {
+                                    val entriesList: List<com.example.data.OplEntry> = allEntries
+                                    val availableJobs = entriesList.filter { it.tanggalString.take(7) == chartMonth }
+                                        .flatMap { it.tipePekerjaan.split(",").map { j -> j.trim() }.filter { j -> j.isNotEmpty() } }
+                                        .toSet()
+                                    selectedExportJobs = availableJobs
+                                    showExportFilterDialog = true
+                                }
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .background(Color(0xFFF3E8FF), CircleShape)
+                                        .size(36.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PictureAsPdf,
+                                        contentDescription = "Export PDF",
+                                        tint = Color(0xFF9333EA),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
+
+                        Row(
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Total Pekerjaan",
+                                    fontSize = 11.sp,
+                                    color = Color.Gray
+                                )
+                                Text(
+                                    text = "$totalJobsCount",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1.5f)) {
+                                Text(
+                                    text = "Atur Harga Pekerjaan",
+                                    fontSize = 11.sp,
+                                    color = Color.Gray
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Box(modifier = Modifier.weight(1.2f)) {
+                                        var expanded by remember { mutableStateOf(false) }
+                                        OutlinedButton(
+                                            onClick = { expanded = true },
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                            modifier = Modifier.fillMaxWidth().height(42.dp)
+                                        ) {
+                                            Text(
+                                                text = selectedJobForPrice,
+                                                fontSize = 10.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        DropdownMenu(
+                                            expanded = expanded,
+                                            onDismissRequest = { expanded = false }
+                                        ) {
+                                            val combinedJobs = (viewModel.availableJobs + jobStats.keys).distinct().sorted()
+                                            combinedJobs.forEach { job ->
+                                                DropdownMenuItem(
+                                                    text = { Text(job, fontSize = 12.sp) },
+                                                    onClick = { 
+                                                        selectedJobForPrice = job
+                                                        expanded = false 
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                    
+                                    val currentPrice = targetJobPrices[selectedJobForPrice] ?: "120000"
+                                    OutlinedTextField(
+                                        value = currentPrice,
+                                        onValueChange = { viewModel.updateJobPrice(selectedJobForPrice, it) },
+                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                                        modifier = Modifier.weight(1f).height(42.dp),
+                                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                            unfocusedBorderColor = Color(0xFFE2E8F0)
+                                        ),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                }
+                            }
+                        }
+                        
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFFF8FAFC), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Total Pendapatan",
+                                    fontSize = 11.sp,
+                                    color = Color.Gray
+                                )
+                                Text(
+                                    text = formatRp.format(totalRevenue),
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 18.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = "Insentif ($incentivePercent%)",
+                                    fontSize = 11.sp,
+                                    color = Color.Gray
+                                )
+                                Text(
+                                    text = formatRp.format(totalIncentive),
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 18.sp,
+                                    color = Color(0xFF10B981) // Emerald Green for earnings
+                                )
+                            }
+                        }
+                        
+                        // Progress bar towards next target (Optional visual polish)
+                        val nextTarget = when {
+                            totalRevenue < 15_000_000 -> Pair(15_000_000L, 1)
+                            totalRevenue < 25_000_000 -> Pair(25_000_000L, 2)
+                            totalRevenue < 35_000_000 -> Pair(35_000_000L, 3)
+                            totalRevenue < 45_000_000 -> Pair(45_000_000L, 4)
+                            totalRevenue < 55_000_000 -> Pair(55_000_000L, 5)
+                            totalRevenue < 75_000_000 -> Pair(75_000_000L, 6)
+                            else -> null
+                        }
+                        
+                        if (nextTarget != null) {
+                            val prevTarget = when {
+                                totalRevenue >= 55_000_000 -> 55_000_000L
+                                totalRevenue >= 45_000_000 -> 45_000_000L
+                                totalRevenue >= 35_000_000 -> 35_000_000L
+                                totalRevenue >= 25_000_000 -> 25_000_000L
+                                totalRevenue >= 15_000_000 -> 15_000_000L
+                                else -> 0L
+                            }
+                            
+                            val progress = ((totalRevenue - prevTarget).toFloat() / (nextTarget.first - prevTarget)).coerceIn(0f, 1f)
+                            
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "Menuju Insentif ${nextTarget.second}%",
+                                        fontSize = 10.sp,
+                                        color = Color.Gray
+                                    )
+                                    Text(
+                                        text = "${formatRp.format(totalRevenue)} / ${formatRp.format(nextTarget.first)}",
+                                        fontSize = 10.sp,
+                                        color = Color.Gray,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                LinearProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(6.dp)
+                                        .clip(RoundedCornerShape(3.dp)),
+                                    color = Color(0xFF9333EA),
+                                    trackColor = Color(0xFFF3E8FF)
+                                )
+                            }
+                        } else {
+                             Text(
+                                 text = "Target Max Tercapai! Luar biasa \uD83C\uDF89",
+                                 fontSize = 11.sp,
+                                 fontWeight = FontWeight.Bold,
+                                 color = Color(0xFF10B981),
+                                 modifier = Modifier.fillMaxWidth(),
+                                 textAlign = TextAlign.Center
+                             )
                         }
                     }
                 }
@@ -1066,7 +1600,7 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
                                                 )
                                             }
                                             Text(
-                                                text = "$count Car(s)",
+                                                text = "$count Unit",
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.ExtraBold,
                                                 color = colors.second
@@ -1193,7 +1727,7 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
                                     ) {
                                         // Bar Tooltip Value
                                         Text(
-                                            text = "$valCount Key",
+                                            text = "$valCount Unit",
                                             fontSize = 9.sp,
                                             fontWeight = FontWeight.ExtraBold,
                                             color = MaterialTheme.colorScheme.primary,
@@ -1242,55 +1776,14 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Search bar
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { viewModel.historySearchQuery.value = it },
-                    placeholder = { Text("Plat Nomor (misal: B 1120)") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                    trailingIcon = if (searchQuery.isNotEmpty()) {
-                        {
-                            IconButton(onClick = { viewModel.historySearchQuery.value = "" }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear search", modifier = Modifier.size(18.dp))
-                            }
-                        }
-                    } else null,
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = Color(0xFFE2E8F0)
-                    )
+                CyberSearchBar(
+                    query = searchQuery,
+                    onQueryChange = { viewModel.historySearchQuery.value = it },
+                    placeholder = "Plat Nomor (misal: B 1120)",
+                    modifier = Modifier.fillMaxWidth(),
+                    onFilterClick = { showAdvancedFilters = !showAdvancedFilters },
+                    hasActiveFilter = hasActiveExpandedFilter
                 )
-
-                // Advanced filters expand button
-                IconButton(
-                    onClick = { showAdvancedFilters = !showAdvancedFilters },
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            if (hasActiveExpandedFilter) MaterialTheme.colorScheme.primaryContainer else Color(0xFFF1F5F9),
-                            RoundedCornerShape(14.dp)
-                        )
-                ) {
-                    Box {
-                        Icon(
-                            imageVector = Icons.Default.FilterList,
-                            contentDescription = "Filter Lanjutan",
-                            tint = if (hasActiveExpandedFilter) MaterialTheme.colorScheme.primary else Color.DarkGray
-                        )
-                        // Tiny notification dot on button indicating active advanced filters
-                        if (hasActiveExpandedFilter) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(Color.Red, CircleShape)
-                                    .align(Alignment.TopEnd)
-                            )
-                        }
-                    }
-                }
             }
 
             // Period Selection Section
@@ -1319,13 +1812,12 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
                         selected = isSelected,
                         onClick = {
                             viewModel.historyFilterType.value = type
-                            if (type == HistoryFilter.DAILY) {
-                                // Automatically open datepicker for daily
+                            
+                            val showSingleDatePicker = {
                                 val calendar = Calendar.getInstance()
                                 viewModel.parseDateString(customFilterDate)?.let { d ->
                                     calendar.time = d
                                 }
-                                
                                 try {
                                     android.app.DatePickerDialog(
                                         context.findActivity() ?: context,
@@ -1345,6 +1837,10 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
                                 } catch (e: Exception) {
                                     e.printStackTrace()
                                 }
+                            }
+
+                            if (type == HistoryFilter.DAILY || type == HistoryFilter.WEEKLY || type == HistoryFilter.MONTHLY) {
+                                showSingleDatePicker()
                             } else if (type == HistoryFilter.RANGE) {
                                 // Automatically open start date picker
                                 val calendar = Calendar.getInstance()
@@ -1382,8 +1878,8 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
                 }
             }
 
-            // Expandable dynamic interactive Datepicker sub-card when Per Hari selected
-            AnimatedVisibility(visible = activeFilter == HistoryFilter.DAILY) {
+            // Expandable dynamic interactive Datepicker sub-card when Per Hari, Minggu, Bulan selected
+            AnimatedVisibility(visible = activeFilter in listOf(HistoryFilter.DAILY, HistoryFilter.WEEKLY, HistoryFilter.MONTHLY)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1430,7 +1926,23 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Tanggal Terpilih: ${getFormattedDateIndo(customFilterDate)}",
+                            text = when (activeFilter) {
+                                HistoryFilter.WEEKLY -> {
+                                    val start = customFilterDate
+                                    val cal = Calendar.getInstance()
+                                    viewModel.parseDateString(start)?.let { d -> cal.time = d }
+                                    cal.add(Calendar.DAY_OF_YEAR, 6)
+                                    val endFull = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
+                                    val endLabel = getFormattedDateIndo(endFull)
+                                    "${getFormattedDateIndo(start)} - $endLabel"
+                                }
+                                HistoryFilter.MONTHLY -> {
+                                    viewModel.parseDateString(customFilterDate)?.let { d ->
+                                        SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(d)
+                                    } ?: getFormattedDateIndo(customFilterDate)
+                                }
+                                else -> getFormattedDateIndo(customFilterDate)
+                            },
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -1560,8 +2072,8 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(
                         modifier = Modifier.padding(14.dp),
@@ -1687,6 +2199,114 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
                 }
             }
 
+            if (currentSubMode == "delete") {
+                Spacer(modifier = Modifier.height(8.dp))
+                val dummyEntries = allEntries.filter { it.catatan == "Demo data OPL - Auto-generated" }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (entries.isNotEmpty()) {
+                        Button(
+                            onClick = { showBulkDeleteConfirm = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                "Hapus Terpilih", 
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = { viewModel.generateDemoData() },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Dataset, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            "Buat Dummy", 
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    if (dummyEntries.isNotEmpty()) {
+                        Button(
+                            onClick = { showDummyDeleteConfirm = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                "Hapus Dummy", 
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+                
+                if (showBulkDeleteConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showBulkDeleteConfirm = false },
+                        title = { Text("Konfirmasi Hapus Data") },
+                        text = { Text("Apakah Anda yakin ingin menghapus ${entries.size} data OPL yang terpilih? Tindakan ini tidak dapat dibatalkan.") },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    viewModel.deleteEntries(entries)
+                                    showBulkDeleteConfirm = false
+                                    currentSubMode = "list"
+                                }
+                            ) { Text("Ya, Hapus Semua", color = MaterialTheme.colorScheme.error) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showBulkDeleteConfirm = false }) { Text("Batal") }
+                        }
+                    )
+                }
+
+                if (showDummyDeleteConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showDummyDeleteConfirm = false },
+                        title = { Text("Konfirmasi Hapus Data Dummy") },
+                        text = { Text("Apakah Anda yakin ingin menghapus seluruh (${dummyEntries.size}) data dummy? Data riil tidak akan terhapus.") },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    viewModel.deleteEntries(dummyEntries)
+                                    showDummyDeleteConfirm = false
+                                }
+                            ) { Text("Ya, Hapus Dummy", color = MaterialTheme.colorScheme.error) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDummyDeleteConfirm = false }) { Text("Batal") }
+                        }
+                    )
+                }
+            }
+
             // Transactions layout renderer
             if (entries.isEmpty()) {
                 EmptyStateContainer(
@@ -1698,19 +2318,165 @@ fun RiwayatOplScreen(viewModel: OplViewModel) {
                 )
             } else {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(entries, key = { it.id }) { entry ->
-                        OplEntryItemCard(
-                            entry = entry,
-                            onEdit = { viewModel.startEditing(entry, sourceTab = 3) },
-                            onDelete = { viewModel.deleteEntry(entry) }
-                        )
+                        if (expandedEntryId == entry.id) {
+                            OplEntryItemCard(
+                                entry = entry,
+                                onEdit = { 
+                                    expandedEntryId = null
+                                    viewModel.startEditing(entry, sourceTab = 3) 
+                                },
+                                onDelete = { viewModel.deleteEntry(entry) }
+                            )
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .clickable { expandedEntryId = entry.id }
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = entry.platNomor,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 14.sp
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                )
+                                Text(
+                                    text = entry.typeKendaraan,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 14.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                )
+                                Text(
+                                    text = entry.tanggalString,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+
+    if (showExportFilterDialog) {
+        val entriesList: List<com.example.data.OplEntry> = allEntries
+        val availableJobsThisMonth = remember(chartMonth, entriesList) {
+            entriesList.filter { it.tanggalString.take(7) == chartMonth }
+                .flatMap { it.tipePekerjaan.split(",").map { j -> j.trim() }.filter { j -> j.isNotEmpty() } }
+                .distinct()
+                .sorted()
+        }
+
+        AlertDialog(
+            onDismissRequest = { showExportFilterDialog = false },
+            title = { Text("Pilih Pekerjaan untuk PDF", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Pilih aktivitas yang ingin disertakan dalam Export PDF bulan ini:", fontSize = 14.sp)
+                    availableJobsThisMonth.forEach { job ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedExportJobs = if (selectedExportJobs.contains(job)) {
+                                        selectedExportJobs - job
+                                    } else {
+                                        selectedExportJobs + job
+                                    }
+                                }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            androidx.compose.material3.Checkbox(
+                                checked = selectedExportJobs.contains(job),
+                                onCheckedChange = { isChecked ->
+                                    selectedExportJobs = if (isChecked) {
+                                        selectedExportJobs + job
+                                    } else {
+                                        selectedExportJobs - job
+                                    }
+                                }
+                            )
+                            Text(text = job, fontSize = 14.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val filteredEntries = entriesList.filter { entry ->
+                            entry.tanggalString.take(7) == chartMonth && 
+                            entry.tipePekerjaan.split(",").map { j -> j.trim() }.filter { j -> j.isNotEmpty() }.any { selectedExportJobs.contains(it) }
+                        }
+                        val filteredTotalRevenue = filteredEntries.sumOf { entry -> 
+                            entry.tipePekerjaan.split(",").map { j -> j.trim() }.filter { j -> j.isNotEmpty() }
+                                .sumOf { job -> 
+                                    if (selectedExportJobs.contains(job)) (targetJobPrices[job] ?: "120000").toLongOrNull() ?: 120000L else 0L 
+                                }
+                        }
+                        val filteredTotalJobsCount = filteredEntries.sumOf { entry ->
+                            entry.tipePekerjaan.split(",").map { j -> j.trim() }.filter { j -> j.isNotEmpty() }.count { selectedExportJobs.contains(it) }
+                        }
+                        
+                        var fIncentivePercent = 0
+                        if (filteredTotalRevenue > 75_000_000) fIncentivePercent = 6
+                        else if (filteredTotalRevenue > 55_000_000) fIncentivePercent = 5
+                        else if (filteredTotalRevenue > 45_000_000) fIncentivePercent = 4
+                        else if (filteredTotalRevenue > 35_000_000) fIncentivePercent = 3
+                        else if (filteredTotalRevenue > 25_000_000) fIncentivePercent = 2
+                        else if (filteredTotalRevenue > 15_000_000) fIncentivePercent = 1
+                        
+                        com.example.util.PdfExporter.exportPendapatanPdf(
+                            context = context,
+                            month = chartMonth,
+                            entries = filteredEntries,
+                            totalRevenue = filteredTotalRevenue,
+                            totalJobsCount = filteredTotalJobsCount,
+                            incentivePercent = fIncentivePercent,
+                            targetJobPrices = targetJobPrices,
+                            selectedJobs = selectedExportJobs
+                        )
+                        showExportFilterDialog = false
+                    },
+                    enabled = selectedExportJobs.isNotEmpty()
+                ) {
+                    Text("Export PDF")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExportFilterDialog = false }) {
+                    Text("Batal")
+                }
+            }
+        )
     }
 }
 
@@ -1843,6 +2609,27 @@ fun OplEntryItemCard(
                     )
                 }
             }
+            
+            if (entry.typeKendaraan.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DirectionsCar,
+                        tint = MaterialTheme.colorScheme.primary,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = "Kendaraan: ${entry.typeKendaraan}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
             Divider(color = Color(0xFFF1F5F9), thickness = 1.dp)
@@ -1902,8 +2689,8 @@ fun OplEntryItemCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFF8FAFC))
-                        .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(12.dp))
+                        .background(Color.Transparent)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
                         .padding(10.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -1911,12 +2698,12 @@ fun OplEntryItemCard(
                             text = "Catatan Tambahan:",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
                         Text(
                             text = entry.catatan,
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
                         )
                     }
                 }
@@ -1929,15 +2716,17 @@ fun OplEntryItemCard(
 @Composable
 fun getWorkTagColor(job: String): Pair<Color, Color> {
     return when (job) {
-        "Salon Engine" -> Color(0xFFE0F2FE) to Color(0xFF0369A1)       // Cyan combination
-        "Salon Kaca" -> Color(0xFFF0FDF4) to Color(0xFF15803D)         // Green/glass glass
-        "Headlamp Treatment" -> Color(0xFFFEF3C7) to Color(0xFFB45309) // Amber bright
-        "Salon Interior" -> Color(0xFFECFDF5) to Color(0xFF047857)     // Emerald soft
-        "Salon Eksterior" -> Color(0xFFF3E8FF) to Color(0xFF6B21A8)    // Purple luxurious
-        "Karpet" -> Color(0xFFFCE7F3) to Color(0xFFBE185D)             // Pink
-        "EX Banjir" -> Color(0xFFFFEDD5) to Color(0xFFC2410C)          // Orange hazard
-        "Rematching Disc" -> Color(0xFFF1F5F9) to Color(0xFF475569)    // Metallic Slate Slate
-        else -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+        "Salon Mesin" -> Color(0xFFE2E8F0) to Color(0xFF0F172A) // Muted slate bg, dark text
+        "Salon Kaca" -> Color(0xFFD1FAE5) to Color(0xFF064E3B) // Muted earthy green bg, dark text
+        "Headlamp Treatment" -> Color(0xFFFEF3C7) to Color(0xFF78350F) // Muted warm bg, dark text
+        "Salon Interior" -> Color(0xFFCCFBF1) to Color(0xFF134E4A) // Muted cyan bg, dark text
+        "Salon Exterior" -> Color(0xFFE9D5FF) to Color(0xFF4C1D95) // Muted purple bg, dark text
+        "Karpet" -> Color(0xFFFCE7F3) to Color(0xFF831843) // Muted pink bg, dark text
+        "Ex Banjir" -> Color(0xFFFFEDD5) to Color(0xFF7C2D12) // Muted orange bg, dark text
+        "Rematching" -> Color(0xFFF1F5F9) to Color(0xFF1E293B) // Muted gray bg, dark text
+        "Jasa Engine" -> Color(0xFFE0E7FF) to Color(0xFF312E81) // Muted indigo bg, dark text
+        "Quick Wax" -> Color(0xFFFEF08A) to Color(0xFF713F12) // Muted yellow bg, dark text
+        else -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
     }
 }
 
@@ -2072,4 +2861,346 @@ fun getFormattedDateIndo(dateStr: String): String {
     } catch (e: Exception) {
         return dateStr
     }
+}
+
+@Composable
+fun CyberSearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    onFilterClick: (() -> Unit)? = null,
+    hasActiveFilter: Boolean = false
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "shimmer_transition")
+    val gradientOffset by infiniteTransition.animateFloat(
+        initialValue = -500f,
+        targetValue = 1500f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ), label = "shimmer_offset"
+    )
+
+    // Futuristic container with glow
+    val primaryGlow = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+    val tertiaryGlow = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.25f)
+
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        // Left Glow
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.5f)
+                .align(Alignment.CenterStart)
+                .height(56.dp)
+                .offset(x = (-10).dp)
+                .blur(30.dp)
+                .background(primaryGlow, CircleShape)
+        )
+        // Right Glow
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.5f)
+                .align(Alignment.CenterEnd)
+                .height(56.dp)
+                .offset(x = 10.dp)
+                .blur(30.dp)
+                .background(tertiaryGlow, CircleShape)
+        )
+
+        // Main Search Box
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
+                .border(
+                    1.dp,
+                    Brush.linearGradient(
+                        listOf(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), Color.Transparent, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.4f)),
+                        start = Offset(0f, 0f),
+                        end = Offset(100f, 100f)
+                    ),
+                    RoundedCornerShape(16.dp)
+                )
+        ) {
+            // Skewed shimmer effect (like HTML gradient skewed translating)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val shimmerWidth = 200f
+                val skewOffset = 100f // to skew the drawing
+                
+                // Draw a skewed polygon that moves across
+                val path = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(gradientOffset, size.height)
+                    lineTo(gradientOffset + shimmerWidth, size.height)
+                    lineTo(gradientOffset + shimmerWidth + skewOffset, 0f)
+                    lineTo(gradientOffset + skewOffset, 0f)
+                    close()
+                }
+                
+                drawPath(
+                    path = path,
+                    brush = Brush.linearGradient(
+                        colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.08f), Color.Transparent),
+                        start = Offset(gradientOffset, 0f),
+                        end = Offset(gradientOffset + shimmerWidth + skewOffset, 0f)
+                    )
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.size(24.dp)
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    modifier = Modifier.weight(1f),
+                    textStyle = TextStyle(
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 16.sp
+                    ),
+                    singleLine = true,
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    decorationBox = { innerTextField ->
+                        if (query.isEmpty()) {
+                            Text(
+                                text = placeholder,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                fontSize = 16.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        innerTextField()
+                    }
+                )
+
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { onQueryChange("") }) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = "Clear",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                if (onFilterClick != null) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    
+                    val filterBg = if (hasActiveFilter) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                    val filterBorder = if (hasActiveFilter) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                    val filterIconTint = if (hasActiveFilter) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(filterBg)
+                            .border(1.dp, filterBorder, RoundedCornerShape(10.dp))
+                            .clickable(onClick = onFilterClick),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = "Filter",
+                            tint = filterIconTint,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SplashScreen() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0F172A)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // App Logo
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_launcher_foreground),
+                contentDescription = "App Logo",
+                modifier = Modifier.size(180.dp),
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit
+            )
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            // Loader
+            CyberCircuitLoader(
+                modifier = Modifier
+                    .width(280.dp)
+                    .aspectRatio(800f / 500f)
+            )
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            // Typewriter text
+            TypewriterText(
+                text = "Sedang Memuat Data . . .",
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+@Composable
+fun CyberCircuitLoader(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "circuit")
+    val phase by infiniteTransition.animateFloat(
+        initialValue = -400f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2500, easing = CubicBezierEasing(0.5f, 0f, 0.9f, 1f)),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "phase"
+    )
+
+    Canvas(modifier = modifier) {
+        val sx = size.width / 800f
+        val sy = size.height / 500f
+
+        val traceBgColor = Color(0xFF333333)
+        val strokeW = 1.8f * (sx + sy) / 2f
+        
+        fun buildPath(startX: Float, startY: Float, midX: Float, midY: Float, endX: Float): androidx.compose.ui.graphics.Path {
+            return androidx.compose.ui.graphics.Path().apply {
+                moveTo(startX * sx, startY * sy)
+                lineTo(midX * sx, startY * sy)
+                lineTo(midX * sx, midY * sy)
+                lineTo(endX * sx, midY * sy)
+            }
+        }
+
+        fun drawTrace(path: androidx.compose.ui.graphics.Path, color: Color) {
+            drawPath(path, traceBgColor, style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW))
+            
+            val effect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(40f * sx, 400f * sx), phase * sx)
+            
+            drawPath(
+                path, 
+                color,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(
+                    width = strokeW, 
+                    pathEffect = effect
+                )
+            )
+            
+            drawPath(
+                path, 
+                color.copy(alpha = 0.5f),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(
+                    width = strokeW * 3f, 
+                    pathEffect = effect
+                )
+            )
+        }
+
+        val purple = Color(0xFF9900FF)
+        val blue = Color(0xFF00CCFF)
+        val yellow = Color(0xFFFFEA00)
+        val green = Color(0xFF00FF15)
+        val red = Color(0xFFFF3300)
+
+        // Traces
+        drawTrace(buildPath(100f, 100f, 200f, 210f, 326f), purple)
+        drawTrace(buildPath(80f, 180f, 180f, 230f, 326f), blue)
+        drawTrace(buildPath(60f, 260f, 150f, 250f, 326f), yellow)
+        drawTrace(buildPath(100f, 350f, 200f, 270f, 326f), green)
+        
+        drawTrace(buildPath(700f, 90f, 560f, 210f, 474f), blue)
+        drawTrace(buildPath(740f, 160f, 580f, 230f, 474f), green)
+        drawTrace(buildPath(720f, 250f, 590f, 250f, 474f), red)
+        drawTrace(buildPath(680f, 340f, 570f, 270f, 474f), yellow)
+
+        val circleColor = Color.Black
+        val r = 5f * sx
+        drawCircle(circleColor, r, Offset(100f * sx, 100f * sy))
+        drawCircle(circleColor, r, Offset(80f * sx, 180f * sy))
+        drawCircle(circleColor, r, Offset(60f * sx, 260f * sy))
+        drawCircle(circleColor, r, Offset(100f * sx, 350f * sy))
+        
+        drawCircle(circleColor, r, Offset(700f * sx, 90f * sy))
+        drawCircle(circleColor, r, Offset(740f * sx, 160f * sy))
+        drawCircle(circleColor, r, Offset(720f * sx, 250f * sy))
+        drawCircle(circleColor, r, Offset(680f * sx, 340f * sy))
+
+        val chipBrush = Brush.verticalGradient(listOf(Color(0xFF2D2D2D), Color(0xFF0F0F0F)))
+        drawRoundRect(
+            brush = chipBrush,
+            topLeft = Offset(330f * sx, 190f * sy),
+            size = androidx.compose.ui.geometry.Size(140f * sx, 100f * sy),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(20f * sx, 20f * sy)
+        )
+        drawRoundRect(
+            color = Color(0xFF222222),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f * sx),
+            topLeft = Offset(330f * sx, 190f * sy),
+            size = androidx.compose.ui.geometry.Size(140f * sx, 100f * sy),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(20f * sx, 20f * sy)
+        )
+
+        val pinBrush = Brush.horizontalGradient(listOf(Color(0xFFBBBBBB), Color(0xFF888888), Color(0xFF555555)))
+        fun drawPin(pw: Float, ph: Float, px: Float, py: Float) {
+            drawRoundRect(
+                brush = pinBrush,
+                topLeft = Offset(px * sx, py * sy),
+                size = androidx.compose.ui.geometry.Size(pw * sx, ph * sy),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2f * sx, 2f * sy)
+            )
+        }
+        val pinYs = listOf(205f, 225f, 245f, 265f)
+        for (py in pinYs) {
+            drawPin(8f, 10f, 322f, py)
+            drawPin(8f, 10f, 470f, py)
+        }
+    }
+}
+
+@Composable
+fun TypewriterText(text: String, modifier: Modifier = Modifier, color: Color = Color.White) {
+    var textToDisplay by remember { mutableStateOf("") }
+    
+    LaunchedEffect(text) {
+        textToDisplay = ""
+        for (i in text.indices) {
+            textToDisplay += text[i]
+            kotlinx.coroutines.delay(80) 
+        }
+    }
+    
+    Text(
+        text = textToDisplay,
+        modifier = modifier,
+        color = color,
+        fontWeight = FontWeight.Bold,
+        fontFamily = FontFamily.Monospace,
+        fontSize = 18.sp,
+        letterSpacing = 2.sp
+    )
 }

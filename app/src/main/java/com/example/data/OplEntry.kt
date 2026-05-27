@@ -11,6 +11,7 @@ data class OplEntry(
     val tanggalString: String, // String format: yyyy-MM-dd
     val timestamp: Long = System.currentTimeMillis(),
     val platNomor: String,
-    val tipePekerjaan: String, // Comma-separated work types
+    val typeKendaraan: String = "", 
+    val tipePekerjaan: String, // Comma-separated work types (or single now)
     val catatan: String = "" // Additional remarks/notes
 )

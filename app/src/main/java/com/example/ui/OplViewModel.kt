@@ -46,6 +46,9 @@ class OplViewModel(application: Application) : AndroidViewModel(application) {
     private var editingSourceTab: Int = 0
 
     fun setActiveTab(index: Int) {
+        if (isEditing.value && index != 2) {
+            resetForm()
+        }
         _activeTab.value = index
     }
 
@@ -61,8 +64,11 @@ class OplViewModel(application: Application) : AndroidViewModel(application) {
     var formCabang = MutableStateFlow("DSO Depok")
     var formSaName = MutableStateFlow("Bunyamin")
     var formPlatNomor = MutableStateFlow("")
+    var formVehicleType = MutableStateFlow("")
+    var formVehicleOther = MutableStateFlow("")
     var formSelectedJobs = MutableStateFlow<Set<String>>(emptySet())
     var formNotes = MutableStateFlow("")
+    var formDate = MutableStateFlow(getCurrentDateString())
     
     // Edit Mode State
     var isEditing = MutableStateFlow(false)
@@ -76,6 +82,15 @@ class OplViewModel(application: Application) : AndroidViewModel(application) {
     var selectedFilterEndDate = MutableStateFlow(getCurrentDateString()) // yyyy-MM-dd
     var historyFilterJob = MutableStateFlow<String?>(null)
     var historyFilterSa = MutableStateFlow<String?>(null)
+
+    // Data Target / Insentif
+    var targetJobPrices = MutableStateFlow<Map<String, String>>(emptyMap())
+
+    fun updateJobPrice(job: String, price: String) {
+        val current = targetJobPrices.value.toMutableMap()
+        current[job] = price
+        targetJobPrices.value = current
+    }
 
     // Dynamic SAs generated from DB list to allow precise autocomplete/chips filtering in Output View
     val availableSAs: StateFlow<List<String>> = allEntries
@@ -98,14 +113,22 @@ class OplViewModel(application: Application) : AndroidViewModel(application) {
 
     // Pre-defined job types
     val availableJobs = listOf(
-        "Salon Engine",
+        "Salon Mesin",
         "Salon Kaca",
+        "Rematching",
         "Headlamp Treatment",
+        "Jasa Engine",
         "Salon Interior",
-        "Salon Eksterior",
+        "Salon Exterior",
         "Karpet",
-        "EX Banjir",
-        "Rematching Disc"
+        "Ex Banjir",
+        "Quick Wax"
+    )
+    
+    val availableVehicles = listOf(
+        "Ayla", "Sigra", "Xenia", "Terios", "Rocky", 
+        "Sirion", "Luxio", "Gran Max", "Taruna", 
+        "Feroza", "Zebra", "Taft", "Others"
     )
 
     // Today's entries specifically for the "Daily OPL" tab
@@ -165,8 +188,32 @@ class OplViewModel(application: Application) : AndroidViewModel(application) {
             val matchesTime = when (state.filterType) {
                 HistoryFilter.ALL -> true
                 HistoryFilter.DAILY -> entry.tanggalString == state.filterDate
-                HistoryFilter.WEEKLY -> isWithinLast7Days(entry.tanggalString)
-                HistoryFilter.MONTHLY -> isWithinCurrentMonth(entry.tanggalString)
+                HistoryFilter.WEEKLY -> {
+                    try {
+                        val inputFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                        val startDate = inputFormat.parse(state.filterDate) ?: java.util.Date()
+                        val cal = java.util.Calendar.getInstance()
+                        cal.time = startDate
+                        cal.add(java.util.Calendar.DAY_OF_YEAR, 6)
+                        val endDateStr = inputFormat.format(cal.time)
+                        entry.tanggalString in state.filterDate..endDateStr
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
+                HistoryFilter.MONTHLY -> {
+                    try {
+                        val inputFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                        val selectedDate = inputFormat.parse(state.filterDate) ?: java.util.Date()
+                        val entryDate = inputFormat.parse(entry.tanggalString) ?: java.util.Date()
+                        val selectedCal = java.util.Calendar.getInstance().apply { time = selectedDate }
+                        val entryCal = java.util.Calendar.getInstance().apply { time = entryDate }
+                        selectedCal.get(java.util.Calendar.YEAR) == entryCal.get(java.util.Calendar.YEAR) &&
+                        selectedCal.get(java.util.Calendar.MONTH) == entryCal.get(java.util.Calendar.MONTH)
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
                 HistoryFilter.RANGE -> entry.tanggalString in state.filterStartDate..state.filterEndDate
             }
 
@@ -193,8 +240,15 @@ class OplViewModel(application: Application) : AndroidViewModel(application) {
         initialValue = emptyList()
     )
 
+    // CHARTS specific filter State
+    var chartSelectedMonth = MutableStateFlow(getCurrentDateString().substring(0, 7)) // "yyyy-MM" format
+
+    private val chartEntries: Flow<List<OplEntry>> = combine(allEntries, chartSelectedMonth) { list, monthStr ->
+        list.filter { it.tanggalString.startsWith(monthStr) }
+    }
+
     // STATISTICS: job breakdown count with respect to the filtered subset to keep it contextually interactive!
-    val jobStatistics: StateFlow<Map<String, Int>> = filteredHistoryEntries
+    val jobStatistics: StateFlow<Map<String, Int>> = chartEntries
         .map { list ->
             val stats = mutableMapOf<String, Int>()
             availableJobs.forEach { stats[it] = 0 }
@@ -213,7 +267,7 @@ class OplViewModel(application: Application) : AndroidViewModel(application) {
         )
 
     // STATISTICS: trend from time to time map of Date -> Unit count
-    val trendStatistics: StateFlow<List<Pair<String, Int>>> = filteredHistoryEntries
+    val trendStatistics: StateFlow<List<Pair<String, Int>>> = chartEntries
         .map { list ->
             list.groupBy { it.tanggalString }
                 .map { (dateStr, unitList) -> dateStr to unitList.size }
@@ -261,7 +315,7 @@ class OplViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val jobsString = selectedJobsList.joinToString(", ")
-        val todayStr = getCurrentDateString()
+        val todayStr = formDate.value
 
         viewModelScope.launch {
             if (isEditing.value && editingId != null) {
@@ -272,9 +326,10 @@ class OplViewModel(application: Application) : AndroidViewModel(application) {
                         cabang = formCabang.value.trim(),
                         saName = formSaName.value.trim(),
                         platNomor = plat,
+                        typeKendaraan = if (formVehicleType.value == "Others") formVehicleOther.value.trim() else formVehicleType.value,
                         tipePekerjaan = jobsString,
-                        catatan = formNotes.value.trim()
-                        // Keep original timestamp and input date so we don't mess up history
+                        catatan = formNotes.value.trim(),
+                        tanggalString = todayStr
                     )
                     repository.update(updated)
                     _statusMessage.value = "Data Perintah Kerja berhasil diperbarui!"
@@ -286,6 +341,7 @@ class OplViewModel(application: Application) : AndroidViewModel(application) {
                     saName = formSaName.value.trim(),
                     tanggalString = todayStr,
                     platNomor = plat,
+                    typeKendaraan = if (formVehicleType.value == "Others") formVehicleOther.value.trim() else formVehicleType.value,
                     tipePekerjaan = jobsString,
                     catatan = formNotes.value.trim()
                 )
@@ -304,6 +360,18 @@ class OplViewModel(application: Application) : AndroidViewModel(application) {
         formSaName.value = entry.saName
         formPlatNomor.value = entry.platNomor
         formNotes.value = entry.catatan
+        formDate.value = entry.tanggalString
+        
+        if (availableVehicles.contains(entry.typeKendaraan)) {
+            formVehicleType.value = entry.typeKendaraan
+            formVehicleOther.value = ""
+        } else if (entry.typeKendaraan.isNotBlank()) {
+            formVehicleType.value = "Others"
+            formVehicleOther.value = entry.typeKendaraan
+        } else {
+            formVehicleType.value = ""
+            formVehicleOther.value = ""
+        }
         
         // Parse comma-separated list
         val jobsSet = entry.tipePekerjaan.split(", ").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
@@ -312,13 +380,20 @@ class OplViewModel(application: Application) : AndroidViewModel(application) {
         editingId = entry.id
         isEditing.value = true
         editingSourceTab = sourceTab
-        _activeTab.value = 1 // Switch to Input tab
+        _activeTab.value = 2 // Switch to OPL Editor tab
     }
 
     fun deleteEntry(entry: OplEntry) {
         viewModelScope.launch {
             repository.delete(entry)
             _statusMessage.value = "Data Perintah Kerja untuk ${entry.platNomor} berhasil dihapus."
+        }
+    }
+
+    fun deleteEntries(entries: List<OplEntry>) {
+        viewModelScope.launch {
+            entries.forEach { repository.delete(it) }
+            _statusMessage.value = "${entries.size} Data Perintah Kerja berhasil dihapus."
         }
     }
 
@@ -329,8 +404,11 @@ class OplViewModel(application: Application) : AndroidViewModel(application) {
 
     fun resetForm() {
         formPlatNomor.value = ""
+        formVehicleType.value = ""
+        formVehicleOther.value = ""
         formSelectedJobs.value = emptySet()
         formNotes.value = ""
+        formDate.value = getCurrentDateString()
         formCabang.value = "DSO Depok"
         formSaName.value = "Bunyamin"
         isEditing.value = false
